@@ -2,7 +2,15 @@
 	"name": "@digidem/nodejs-mobile-test-harness",
 	"version": "0.0.0",
 	"description": "Run a Node project inside nodejs-mobile on an iOS simulator or Android device and exit with node's exit code",
-	"keywords": [],
+	"keywords": [
+		"nodejs-mobile",
+		"ios",
+		"android",
+		"test",
+		"tap",
+		"simulator",
+		"emulator"
+	],
 	"license": "MIT",
 	"author": "Awana Digital",
 	"repository": {
@@ -23,7 +31,9 @@
 	},
 	"files": [
 		"src",
-		"dist"
+		"dist",
+		"ios",
+		"android"
 	],
 	"engines": {
 		"node": ">=22"
@@ -92,5 +102,8 @@
 	},
 	"dependencies": {
 		"custom-error-creator": "^1.4.0"
+	},
+	"bin": {
+		"nodejs-mobile-test": "./src/cli.js"
 	}
 }

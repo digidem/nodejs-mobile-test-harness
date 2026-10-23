@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 
-export const LOG_PREFIX = '[nodejs-mobile-test]'
+const LOG_PREFIX = '[nodejs-mobile-test]'
 
 /** @param {string} message */
 export function log(message) {
@@ -47,9 +47,16 @@ export function exec(command, args, { timeoutMs, cwd, env }) {
 			clearTimeout(timer)
 			reject(err)
 		})
-		child.on('close', (exitCode) => {
+		/** @param {number | null} exitCode */
+		const done = (exitCode) => {
 			clearTimeout(timer)
 			resolve({ exitCode, stdout, stderr, timedOut })
+		}
+		child.on('close', done)
+		// A forked daemon (the adb server) can hold the pipes open after the
+		// command itself has exited, so `close` never comes.
+		child.on('exit', (exitCode) => {
+			setTimeout(() => done(exitCode), 1000).unref()
 		})
 	})
 }
