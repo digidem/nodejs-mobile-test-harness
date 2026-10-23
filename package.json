@@ -39,8 +39,7 @@
 		"node": ">=22"
 	},
 	"publishConfig": {
-		"access": "public",
-		"tag": "next"
+		"access": "public"
 	},
 	"sideEffects": false,
 	"scripts": {
@@ -55,7 +54,7 @@
 		"test:unit": "node --test \"test/**/*.test.js\"",
 		"check:pkg": "npm run build && publint && attw --pack --profile esm-only",
 		"changeset": "changeset",
-		"release": "changeset publish --tag next"
+		"release": "changeset publish"
 	},
 	"prettier": {
 		"semi": false,
