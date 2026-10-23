@@ -9,7 +9,6 @@ through it phase by phase, and treat its Decisions section as settled.
 
 ```sh
 npm test            # types, lint, unused (knip), unit tests
-npm run coverage    # unit tests with lcov + text coverage
 npm run check:pkg   # publint + attw on the packed tarball
 npm run format      # prettier
 ```
