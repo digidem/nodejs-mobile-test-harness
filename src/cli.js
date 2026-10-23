@@ -87,6 +87,9 @@ export async function main(argv) {
 		process.stderr.write(HELP)
 		return 1
 	}
+	if (values['build-only'] && values['run-only']) {
+		throw new TypeError('--build-only and --run-only are mutually exclusive')
+	}
 	const timeout =
 		values.timeout === undefined ? undefined : Number(values.timeout)
 	if (timeout !== undefined && !(timeout > 0)) {
