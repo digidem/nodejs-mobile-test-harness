@@ -37,3 +37,6 @@ output-metadata.json
 # CI-populated — the workflow fills these at runtime and shouldn't be committed.
 app/libnode/
 app/src/main/assets/
+
+# Gradle wrapper (overrides a global *.jar ignore)
+!gradle/wrapper/gradle-wrapper.jar
