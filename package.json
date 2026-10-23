@@ -1,6 +1,6 @@
 {
 	"name": "nodejs-mobile-test-harness",
-	"version": "1.0.0-pre.1",
+	"version": "1.0.0-pre.2",
 	"description": "Run a Node project inside nodejs-mobile on an iOS simulator or Android device and exit with node's exit code",
 	"keywords": [
 		"nodejs-mobile",
