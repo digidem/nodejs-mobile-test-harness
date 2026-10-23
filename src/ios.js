@@ -268,12 +268,9 @@ export async function runIosApp({
 
 		const lines = lineSplitter((line) => {
 			if (done) return
-			if (!launched && launchLine.test(line)) {
-				launched = true
-				log(`app started (${line})`)
-				return
-			}
 			launched = true
+			// simctl's own "<bundle id>: <pid>" line, which can follow app output.
+			if (launchLine.test(line)) return
 			const sentinel = parseSentinel(line)
 			if (sentinel) {
 				if (sentinel.before) stdout.write(sentinel.before + '\n')

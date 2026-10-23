@@ -6,6 +6,14 @@ import { InvalidProject } from './errors.js'
 export const APP_ID = 'com.awana.nodejstest'
 export const SENTINEL = '__NODE_EXIT__:'
 
+// Xcode's build service can still be writing to a previous build's output.
+const RM_OPTIONS = {
+	recursive: true,
+	force: true,
+	maxRetries: 10,
+	retryDelay: 200,
+}
+
 const PACKAGE_ROOT = path.join(import.meta.dirname, '..')
 
 // Build output and runtime slots that must never be copied out of a template.
@@ -74,7 +82,7 @@ export function assertProject(projectDir, entry) {
  * @param {string} dest
  */
 export function copyTemplate(platform, dest) {
-	fs.rmSync(dest, { recursive: true, force: true })
+	fs.rmSync(dest, RM_OPTIONS)
 	fs.cpSync(path.join(PACKAGE_ROOT, platform), dest, {
 		recursive: true,
 		filter: (src) => !TEMPLATE_SKIP.has(path.basename(src)),
@@ -91,7 +99,7 @@ export function copyTemplate(platform, dest) {
  * @param {string} options.cacheRoot excluded, in case it lives inside the project
  */
 export function writeNodejsProject({ projectDir, entry, dest, cacheRoot }) {
-	fs.rmSync(dest, { recursive: true, force: true })
+	fs.rmSync(dest, RM_OPTIONS)
 	fs.cpSync(projectDir, dest, {
 		recursive: true,
 		// The app bundle can't hold symlinks that point outside it.

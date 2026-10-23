@@ -119,7 +119,6 @@ export async function main(argv) {
 					avd: values.avd,
 					abi: values.abi,
 				})
-	if (values['build-only']) log(`app: ${result.appPath}`)
 	return result.exitCode ?? 0
 }
 
