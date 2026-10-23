@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: Publish a snapshot of pending changesets to the `next` dist-tag
+        type: boolean
+        default: true
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      # An App token, not GITHUB_TOKEN, so the version PR triggers CI
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Create version PR or publish
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          publish-script: npm run release
+          pr-title: 'chore: version packages'
+          commit-message: 'chore: version packages'
+        env:
+          NPM_CONFIG_PROVENANCE: true
+
+  # Lives in this file so one npm trusted-publisher entry covers both jobs
+  snapshot:
+    if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npx changeset version --snapshot next
+        env:
+          # changelog-github looks up PR links via the API
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx changeset publish --tag next --no-git-tag
+        env:
+          NPM_CONFIG_PROVENANCE: true
