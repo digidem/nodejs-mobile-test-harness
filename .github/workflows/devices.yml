@@ -1,0 +1,83 @@
+name: Devices
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: scripts/run-fixtures.sh ios --timeout 300
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # nodejs-mobile's oldest supported Android, and an ATD image.
+        include:
+          - { api-level: 24, target: google_apis, ram: 2048M }
+          - { api-level: 30, target: google_atd, ram: 4096M }
+    name: android (API ${{ matrix.api-level }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: npm ci
+      # Built before the emulator boots; the emulator step only runs.
+      - run: scripts/run-fixtures.sh android --build-only --abi x86_64
+      # The older emulator images sometimes fail to boot or hang, so a stuck run
+      # stops after 15 minutes and is tried once more on a fresh emulator.
+      - id: emulator
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        timeout-minutes: 15
+        continue-on-error: true
+        with: &emulator
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          ram-size: ${{ matrix.ram }}
+          # The image's default 7 GB data partition doesn't fit on the runner's disk.
+          disk-size: 4096M
+          emulator-boot-timeout: 300
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: false
+          # Each line runs as its own `sh -c`, so this must stay one line.
+          script: scripts/run-fixtures.sh android --run-only --timeout 300
+      - name: Stop the first emulator
+        if: steps.emulator.outcome == 'failure'
+        run: |
+          pkill -f qemu-system || true
+          "$ANDROID_HOME/platform-tools/adb" kill-server || true
+      - if: steps.emulator.outcome == 'failure'
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        timeout-minutes: 15
+        with: *emulator

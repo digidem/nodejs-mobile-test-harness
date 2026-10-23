@@ -2,3 +2,4 @@
 
 # Fixtures compared byte-for-byte must not get CRLF conversion on Windows
 test/fixtures/** -text
+*.bat text eol=crlf

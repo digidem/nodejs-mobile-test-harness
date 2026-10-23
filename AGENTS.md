@@ -9,7 +9,6 @@ through it phase by phase, and treat its Decisions section as settled.
 
 ```sh
 npm test            # types, lint, unused (knip), unit tests
-npm run coverage    # unit tests with lcov + text coverage
 npm run check:pkg   # publint + attw on the packed tarball
 npm run format      # prettier
 ```
@@ -37,7 +36,9 @@ npm run format      # prettier
   behaviours"; a change that drops one reintroduces a known CI hang.
 - The default nodejs-mobile version is pinned in one place in the source;
   bump it there, in the README, and in CI together.
-- Releases: Gregor publishes. Prereleases go to the `next` dist-tag.
+- Releases: Gregor publishes. Prereleases go to the `next` dist-tag: until
+  1.0.0, `npm run release` passes `--tag next` and `publishConfig.tag` is
+  `next`; changesets would otherwise publish to `latest`.
 
 ## Conventions
 
