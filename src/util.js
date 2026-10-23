@@ -50,6 +50,10 @@ export function exec(command, args, { timeoutMs, cwd, env }) {
 		/** @param {number | null} exitCode */
 		const done = (exitCode) => {
 			clearTimeout(timer)
+			// Our ends of the pipes would otherwise keep the CLI alive for as long
+			// as a forked daemon holds theirs.
+			child.stdout.destroy()
+			child.stderr.destroy()
 			resolve({ exitCode, stdout, stderr, timedOut })
 		}
 		child.on('close', done)
@@ -73,8 +77,15 @@ export function exec(command, args, { timeoutMs, cwd, env }) {
 export function execToStderr(command, args, { cwd, env } = {}) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { cwd, env, stdio: ['ignore', 2, 2] })
-		child.on('error', reject)
-		child.on('close', resolve)
+		const unregister = onInterrupt(() => child.kill('SIGTERM'))
+		child.on('error', (err) => {
+			unregister()
+			reject(err)
+		})
+		child.on('close', (code) => {
+			unregister()
+			resolve(code)
+		})
 	})
 }
 
@@ -107,4 +118,27 @@ export function projectCacheDir(cwd) {
 		'.cache',
 		'nodejs-mobile-test-harness',
 	)
+}
+
+/** @type {Set<() => unknown>} */
+const interruptCleanups = new Set()
+
+/**
+ * Register cleanup for when the CLI is interrupted (SIGINT/SIGTERM), where
+ * `finally` blocks don't run.
+ *
+ * @param {() => unknown} cleanup
+ * @returns {() => void} unregisters it
+ */
+export function onInterrupt(cleanup) {
+	interruptCleanups.add(cleanup)
+	return () => interruptCleanups.delete(cleanup)
+}
+
+/** Run every registered cleanup, bounded. */
+export async function runInterruptCleanups(timeoutMs = 30_000) {
+	const cleanups = [...interruptCleanups]
+	interruptCleanups.clear()
+	const all = Promise.allSettled(cleanups.map(async (cleanup) => cleanup()))
+	await Promise.race([all, sleep(timeoutMs)])
 }

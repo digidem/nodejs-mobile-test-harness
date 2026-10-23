@@ -13,10 +13,11 @@ import {
 	Timeout,
 } from './errors.js'
 import { APP_ID, copyTemplate, writeNodejsProject } from './project.js'
-import { lineSplitter, parseSentinel } from './sentinel.js'
-import { exec, execToStderr, log } from './util.js'
+import { lineSplitter, sentinelWatcher } from './sentinel.js'
+import { exec, execToStderr, log, onInterrupt } from './util.js'
 
-const BOOT_TIMEOUT_S = 300
+// Cold boots on CI runners have taken over five minutes.
+const BOOT_TIMEOUT_S = 600
 const INSTALL_TIMEOUT_S = 120
 const SIMCTL_TIMEOUT_S = 60
 
@@ -251,6 +252,7 @@ export async function runIosApp({
 		],
 		{ stdio: ['ignore', 'pipe', 'pipe'] },
 	)
+	const unregister = onInterrupt(() => child.kill('SIGKILL'))
 	const launchLine = new RegExp(`^${APP_ID.replaceAll('.', '\\.')}: \\d+$`)
 	let launched = false
 	let launchStderr = ''
@@ -261,29 +263,32 @@ export async function runIosApp({
 		const finish = (settle) => {
 			if (done) return
 			done = true
+			unregister()
 			clearTimeout(timer)
+			watcher.stop()
 			child.kill('SIGKILL')
 			settle()
 		}
 
+		const watcher = sentinelWatcher({
+			stdout,
+			onExit: (exitCode) => {
+				log(`node exited with code ${exitCode}`)
+				finish(() => resolve(exitCode))
+			},
+		})
 		const lines = lineSplitter((line) => {
 			if (done) return
 			launched = true
 			// simctl's own "<bundle id>: <pid>" line, which can follow app output.
 			if (launchLine.test(line)) return
-			const sentinel = parseSentinel(line)
-			if (sentinel) {
-				if (sentinel.before) stdout.write(sentinel.before + '\n')
-				log(`node exited with code ${sentinel.exitCode}`)
-				finish(() => resolve(sentinel.exitCode))
-				return
-			}
-			stdout.write(line + '\n')
+			watcher.line(line)
 		})
 		child.stdout.setEncoding('utf8').on('data', lines.push)
 		child.stderr.setEncoding('utf8').on('data', (d) => (launchStderr += d))
 
 		const timer = setTimeout(() => {
+			if (watcher.exitCode !== undefined) return watcher.end()
 			finish(() => {
 				exec('xcrun', ['simctl', 'terminate', device.udid, APP_ID], {
 					timeoutMs: 15_000,
@@ -296,6 +301,7 @@ export async function runIosApp({
 		child.on('close', (code) => {
 			lines.flush()
 			if (done) return
+			if (watcher.exitCode !== undefined) return watcher.end()
 			if (launchStderr.trim()) process.stderr.write(launchStderr)
 			finish(() =>
 				reject(
