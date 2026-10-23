@@ -2,8 +2,7 @@
 
 `nodejs-mobile-test-harness`: a CLI (`nodejs-mobile-test`) that runs a
 Node project inside nodejs-mobile on an iOS simulator or Android device and
-exits with node's exit code. While `PLAN.md` exists, it is the brief: work
-through it phase by phase, and treat its Decisions section as settled.
+exits with node's exit code.
 
 ## Commands
 
@@ -32,17 +31,40 @@ npm run format      # prettier
 - App output goes to stdout untouched; the tool's own messages go to stderr
   with the `[nodejs-mobile-test]` prefix. Consumers pipe stdout as TAP.
 - Every wait on a device (adb call, app launch, sentinel) has a bound. The
-  Android hang fixes are listed in `PLAN.md` under "Android runner
-  behaviours"; a change that drops one reintroduces a known CI hang.
+  Android hang fixes are listed under "Android runner behaviours" below; a
+  change that drops one reintroduces a known CI hang.
 - The default nodejs-mobile version is pinned in one place in the source;
   bump it there, in the README, and in CI together.
-- Releases: Gregor publishes. Until 1.0.0, changesets is in pre mode with the
-  id `pre`, so the version PR makes `1.0.0-pre.N` and `changeset publish` sends
-  it to the `pre` dist-tag. Pre mode refuses `changeset publish --tag` and
-  snapshot releases, so don't add either. For 1.0.0: run
-  `npx changeset pre exit`, and publishing goes to `latest`.
+- Releases: Gregor publishes, by merging the "chore: version packages" PR,
+  which sends the release to the `latest` dist-tag.
 - Every PR needs a changeset (`npx changeset`, or `npx changeset --empty` for
   one that releases nothing); the changeset-check job enforces it.
+
+## Android runner behaviours
+
+Each of these fixed a real CI hang in the bash runner this was ported from:
+
+- Clear logcat, then start logcat before launching, so early output isn't
+  lost:
+
+  ```sh
+  adb logcat -v raw -s NODEJS-MOBILE:V nodejs:V System.err:W AndroidRuntime:E
+  ```
+
+  The extra tags are where uncaught exceptions, missing-asset errors and Java
+  crashes show up.
+
+- Launch with `adb shell am start -n <id>/.TestActivity` without `-W`, bounded
+  to 60 s: `-W` hangs forever on a wedged emulator.
+- When logcat is quiet for 10 s, check `adb shell pidof -s <id>` bounded to
+  15 s. Gone (and adb answered) means the app died: fail now and print
+  `adb logcat -d -t 100 -b crash`. adb itself timing out means the emulator is
+  wedged; keep waiting for the overall timeout.
+- On exit, kill the logcat client process itself; a surviving one holds an adb
+  connection that has hung android-emulator-runner's teardown.
+- Install with `adb install -r -g`, after waiting for `sys.boot_completed`.
+- `native-lib.cpp` drains the stdout/stderr pump threads before writing the
+  sentinel, so the last lines of output aren't lost.
 
 ## Conventions
 

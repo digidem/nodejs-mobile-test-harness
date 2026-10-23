@@ -304,7 +304,7 @@ export async function deviceAbi(serial) {
 
 /**
  * Install and launch the app, stream logcat until the exit sentinel. Keeps
- * every hang fix from nodejs-mobile-bare-prebuilds' run-test.sh; see PLAN.md
+ * every hang fix from nodejs-mobile-bare-prebuilds' run-test.sh; see AGENTS.md
  * "Android runner behaviours".
  *
  * @param {object} options
