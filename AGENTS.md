@@ -36,9 +36,13 @@ npm run format      # prettier
   behaviours"; a change that drops one reintroduces a known CI hang.
 - The default nodejs-mobile version is pinned in one place in the source;
   bump it there, in the README, and in CI together.
-- Releases: Gregor publishes. Prereleases go to the `next` dist-tag: until
-  1.0.0, `npm run release` passes `--tag next` and `publishConfig.tag` is
-  `next`; changesets would otherwise publish to `latest`.
+- Releases: Gregor publishes. Until 1.0.0, changesets is in pre mode with the
+  id `pre`, so the version PR makes `1.0.0-pre.N`, and `npm run release` and
+  `publishConfig.tag` send it to the `next` dist-tag (changesets would otherwise
+  use `latest`). Snapshot releases don't work in pre mode. For 1.0.0: run
+  `npx changeset pre exit`, and drop `--tag next` and `publishConfig.tag`.
+- Every PR needs a changeset (`npx changeset`, or `npx changeset --empty` for
+  one that releases nothing); the changeset-check job enforces it.
 
 ## Conventions
 
