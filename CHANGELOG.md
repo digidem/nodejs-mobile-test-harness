@@ -1,5 +1,11 @@
 # nodejs-mobile-test-harness
 
+## 1.0.0-pre.2
+
+### Patch Changes
+
+- [#11](https://github.com/digidem/nodejs-mobile-test-harness/pull/11) [`ebca0c7`](https://github.com/digidem/nodejs-mobile-test-harness/commit/ebca0c7aeab64dfb6894d923d4b0f99a85db722e) - Publish prereleases to the `pre` dist-tag instead of `next`.
+
 ## 1.0.0-pre.1
 
 ### Patch Changes
