@@ -4,7 +4,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-	globalIgnores(['dist/', 'coverage/']),
+	globalIgnores(['dist/', 'coverage/', 'ios/', 'android/', 'test/fixtures/']),
 	js.configs.recommended,
 	tseslint.configs.recommended,
 	{ languageOptions: { globals: globals.node } },

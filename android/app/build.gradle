@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.digidem.nodejstest'
+    compileSdk 34
+    ndkVersion '26.3.11579264'
+
+    defaultConfig {
+        applicationId "com.digidem.nodejstest"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+        ndk {
+            // ABI filter is set at build time via -PabiFilter=<abi>
+            abiFilters project.findProperty("abiFilter") ?: "x86_64"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
+    sourceSets {
+        main {
+            // libnode/bin/<abi>/libnode.so is populated at CI time
+            jniLibs.srcDirs 'libnode/bin/'
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Keep debug build simple: no minification, no shrinking.
+            minifyEnabled false
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            // libnode.so is large; don't compress so it can be mmap'd
+            useLegacyPackaging true
+        }
+    }
+}

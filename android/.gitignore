@@ -1,0 +1,39 @@
+# Based on https://github.com/github/gitignore/blob/main/Android.gitignore,
+# trimmed to what applies to this harness.
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration (SDK path, etc)
+local.properties
+
+# Log/OS files
+*.log
+.DS_Store
+
+# Android Studio / AGP generated
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+output-metadata.json
+
+# IntelliJ / Android Studio project metadata
+*.iml
+.idea/
+
+# Keystores (this harness builds unsigned debug only)
+*.jks
+*.keystore
+
+# Profiling
+*.hprof
+
+# CI-populated — the workflow fills these at runtime and shouldn't be committed.
+app/libnode/
+app/src/main/assets/
