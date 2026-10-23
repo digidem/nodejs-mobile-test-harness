@@ -1,4 +1,4 @@
-# Plan: @digidem/nodejs-mobile-test-harness
+# Plan: nodejs-mobile-test-harness
 
 Extract the nodejs-mobile test harness from
 [digidem/nodejs-mobile-bare-prebuilds](https://github.com/digidem/nodejs-mobile-bare-prebuilds)
@@ -24,7 +24,7 @@ xcodebuild/gradle calls exist in three copies.
 
 ## Decisions (settled; don't revisit)
 
-- **Name**: npm `@digidem/nodejs-mobile-test-harness`, repo
+- **Name**: npm `nodejs-mobile-test-harness`, repo
   `digidem/nodejs-mobile-test-harness`, bin `nodejs-mobile-test`.
 - **Scope of what moves**: the two apps, the build/install/launch/exit-code
   logic, and `wrapper.js`. Project assembly (`assemble-test-project`: npm
@@ -101,11 +101,11 @@ One PR in this repo (`git init` here; Gregor creates the GitHub repo).
 4. Build: copy the app template into the consumer's cache dir, populate the
    runtime and `nodejs-project/` (the user's dir plus the generated `main.js`),
    then run xcodebuild (flags as in `test-ios.yml`) or `./gradlew
-   -PabiFilter=<abi> :app:assembleDebug`. Rebuild only what changed is not
+-PabiFilter=<abi> :app:assembleDebug`. Rebuild only what changed is not
    required; correctness over speed. Done when `--build-only` leaves an `.app` /
    `.apk` and prints its path.
 5. Run on iOS: pick and boot the simulator, install, `simctl launch
-   --console-pty --terminate-running-process`, stream stdout, stop on the
+--console-pty --terminate-running-process`, stream stdout, stop on the
    sentinel. Add the timeout and the dead-app check (poll that the app's
    process still exists, e.g. via `simctl spawn <udid> launchctl list` or
    `simctl listapps`/process check; choose what works and note why). Done when
@@ -158,7 +158,7 @@ One PR in `../nodejs-mobile-bare-prebuilds`. The `@v3` inputs of
 
 - `assemble-test-project` writes the project dir and no longer places
   `main.js` (`wrapper.js` is deleted).
-- The workflows call `npx @digidem/nodejs-mobile-test-harness@<exact version>`
+- The workflows call `npx nodejs-mobile-test-harness@<exact version>`
   for build and run, with a new optional `harness_version` input that replaces
   `harness_ref`. The runtime download steps and their caches go.
 - Delete `test-harness/` and the iOS/Android run logic from the workflows.
@@ -177,7 +177,7 @@ fixes for real CI hangs; its comments explain each. The Node port keeps all of
 them:
 
 - Start `adb logcat -c` then `adb logcat -v raw -s NODEJS-MOBILE:V nodejs:V
-  System.err:W AndroidRuntime:E` **before** launching, so early output isn't
+System.err:W AndroidRuntime:E` **before** launching, so early output isn't
   lost. The extra tags are where uncaught exceptions, missing-asset errors and
   Java crashes show up.
 - Launch with `adb shell am start -n <id>/.TestActivity` **without** `-W`,

@@ -1,4 +1,4 @@
-# @digidem/nodejs-mobile-test-harness
+# nodejs-mobile-test-harness
 
 ## 1.0.0-pre.0
 

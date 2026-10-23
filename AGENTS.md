@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`@digidem/nodejs-mobile-test-harness`: a CLI (`nodejs-mobile-test`) that runs a
+`nodejs-mobile-test-harness`: a CLI (`nodejs-mobile-test`) that runs a
 Node project inside nodejs-mobile on an iOS simulator or Android device and
 exits with node's exit code. While `PLAN.md` exists, it is the brief: work
 through it phase by phase, and treat its Decisions section as settled.

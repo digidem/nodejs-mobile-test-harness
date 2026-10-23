@@ -1,6 +1,6 @@
-# @digidem/nodejs-mobile-test-harness
+# nodejs-mobile-test-harness
 
-[![npm version](https://img.shields.io/npm/v/@digidem/nodejs-mobile-test-harness.svg)](https://www.npmjs.com/package/@digidem/nodejs-mobile-test-harness)
+[![npm version](https://img.shields.io/npm/v/nodejs-mobile-test-harness.svg)](https://www.npmjs.com/package/nodejs-mobile-test-harness)
 [![Devices](https://github.com/digidem/nodejs-mobile-test-harness/actions/workflows/devices.yml/badge.svg)](https://github.com/digidem/nodejs-mobile-test-harness/actions/workflows/devices.yml)
 
 Runs a Node project inside [nodejs-mobile](https://github.com/digidem/nodejs-mobile)
@@ -25,7 +25,7 @@ past the timeout, or a failed build exits 1, with the reason on stderr.
 ## Usage
 
 ```sh
-npm install --save-dev @digidem/nodejs-mobile-test-harness
+npm install --save-dev nodejs-mobile-test-harness
 
 npx nodejs-mobile-test ios path/to/project
 npx nodejs-mobile-test android path/to/project
@@ -71,7 +71,7 @@ The process exits with whatever exit code node reports. `process.exitCode` and
 ## JavaScript API
 
 ```js
-import { runAndroid, runIos } from '@digidem/nodejs-mobile-test-harness'
+import { runAndroid, runIos } from 'nodejs-mobile-test-harness'
 
 const { exitCode, appPath } = await runIos({ projectDir: 'nodejs-project' })
 ```
