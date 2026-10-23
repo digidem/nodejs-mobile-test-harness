@@ -1,5 +1,11 @@
 # nodejs-mobile-test-harness
 
+## 1.0.0
+
+### Patch Changes
+
+- [#13](https://github.com/digidem/nodejs-mobile-test-harness/pull/13) [`a3f4a89`](https://github.com/digidem/nodejs-mobile-test-harness/commit/a3f4a8962af4efe9b0eb015639d79e142cf963b0) - First stable release, published to the `latest` dist-tag. No changes from 1.0.0-pre.2.
+
 ## 1.0.0-pre.2
 
 ### Patch Changes
