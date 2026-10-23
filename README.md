@@ -37,7 +37,7 @@ npx nodejs-mobile-test android path/to/project
 | `--nodejs-mobile <version>` | both       | `24.19.0-0`                                                 |
 | `--runtime-dir <path>`      | both       | download the release into a per-user cache                  |
 | `--timeout <seconds>`       | both       | `1200`, counted from launch                                 |
-| `--build-only`              | both       | build, print the app's path, stop                           |
+| `--build-only`              | both       | build, print the app's path to stdout, stop                 |
 | `--run-only`                | both       | run the app from the last build                             |
 | `--simulator <name\|udid>`  | iOS        | a booted simulator, else the first iPhone on the newest iOS |
 | `--serial <serial>`         | Android    | `ANDROID_SERIAL`, else the only attached device             |
@@ -97,7 +97,7 @@ On Android, build before the emulator boots, then run inside
 Its `script:` runs each line as a separate shell, so keep it to one line:
 
 ```yaml
-- uses: actions/setup-java@v5
+- uses: actions/setup-java@v6
   with:
     distribution: temurin
     java-version: 17

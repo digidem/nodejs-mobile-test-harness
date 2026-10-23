@@ -16,8 +16,8 @@ import {
 } from './errors.js'
 import { APP_ID, copyTemplate, writeNodejsProject } from './project.js'
 import { assertRuntimeDir } from './runtime.js'
-import { lineSplitter, parseSentinel } from './sentinel.js'
-import { exec, execToStderr, log, sleep } from './util.js'
+import { lineSplitter, sentinelWatcher } from './sentinel.js'
+import { exec, execToStderr, log, onInterrupt, sleep } from './util.js'
 
 export const ABIS = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86']
 
@@ -189,7 +189,14 @@ export async function acquireDevice({
 	if (serial) {
 		const found = devices.find((d) => d.serial === serial)
 		if (found?.state === 'device') return { serial, release }
-		if (!found && avd) return bootAvd(avd, devices, cacheRoot, serial)
+		if (!found && avd) {
+			if (!/^emulator-\d+$/.test(serial)) {
+				throw new DeviceNotFound({
+					reason: `${serial} is not attached, and --avd can only boot on an emulator-<port> serial`,
+				})
+			}
+			return bootAvd(avd, devices, cacheRoot, serial)
+		}
 		throw new DeviceNotFound({
 			reason: found
 				? `${serial} is ${found.state}`
@@ -239,12 +246,15 @@ async function bootAvd(avd, devices, cacheRoot, wantSerial) {
 	emulator.on('error', () => (exited = true))
 
 	const release = async () => {
+		unregister()
 		if (exited) return
 		log(`shutting down ${serial}`)
 		await adb(serial, ['emu', 'kill'])
 		for (let i = 0; i < 60 && !exited; i++) await sleep(500)
 		if (!exited) emulator.kill('SIGKILL')
 	}
+
+	const unregister = onInterrupt(() => release())
 
 	const deadline = Date.now() + BOOT_TIMEOUT_S * 1000
 	while (Date.now() < deadline) {
@@ -331,7 +341,17 @@ export async function runAndroidApp({
 		})
 	}
 
-	await adb(serial, ['logcat', '-c'])
+	// Fail rather than continue: a stale buffer can hold an earlier run's
+	// sentinel, which the new logcat client would replay.
+	const clear = await adb(serial, ['logcat', '-c'])
+	if (clear.timedOut || clear.exitCode !== 0) {
+		throw new CommandFailed({
+			command: 'adb logcat -c',
+			output: clear.timedOut
+				? `no answer within ${ADB_TIMEOUT_S}s`
+				: (clear.stdout + clear.stderr).trim(),
+		})
+	}
 	// Started before the launch so early output isn't lost. Beyond node's
 	// stdout/stderr (NODEJS-MOBILE): `nodejs` carries libnode's fatal-error
 	// reports (uncaught exceptions), System.err the asset-copy failures, and
@@ -342,6 +362,7 @@ export async function runAndroidApp({
 		'-s', 'NODEJS-MOBILE:V', 'nodejs:V', 'System.err:W', 'AndroidRuntime:E',
 	], { stdio: ['ignore', 'pipe', 'ignore'] })
 	const logcatClosed = new Promise((resolve) => logcat.on('close', resolve))
+	const unregister = onInterrupt(() => logcat.kill('SIGKILL'))
 
 	try {
 		log('launching app')
@@ -387,6 +408,7 @@ export async function runAndroidApp({
 		await adb(serial, ['shell', 'am', 'force-stop', APP_ID])
 		throw new Timeout({ seconds: String(timeoutSeconds) })
 	} finally {
+		unregister()
 		// A surviving logcat client holds an adb connection open, which has
 		// hung android-emulator-runner's teardown.
 		logcat.kill('SIGTERM')
@@ -421,32 +443,34 @@ function watchLogcat({ logcat, serial, timeoutSeconds, stdout }) {
 			done = true
 			clearTimeout(quietTimer)
 			clearTimeout(overall)
+			watcher.stop()
 			resolve(outcome)
 		}
 
+		const watcher = sentinelWatcher({
+			stdout,
+			onExit: (exitCode) => finish({ kind: 'exit', exitCode }),
+		})
+		const sentinelSeen = () => watcher.exitCode !== undefined
+
 		// Logcat went quiet: tell "app died" from "emulator wedged". pidof answers
 		// empty when the process is gone; adb itself timing out means the
-		// emulator is wedged, so keep waiting for the overall timeout.
+		// emulator is wedged, so keep waiting for the overall timeout. Not after
+		// the sentinel, when the app is meant to exit.
 		const checkAlive = async () => {
 			const res = await adb(serial, ['shell', 'pidof', '-s', APP_ID])
-			if (done) return
+			if (done || sentinelSeen()) return
 			if (!res.timedOut && !res.stdout.trim()) finish({ kind: 'died' })
 			else armQuiet()
 		}
 		const armQuiet = () => {
 			clearTimeout(quietTimer)
-			quietTimer = setTimeout(checkAlive, QUIET_S * 1000)
+			if (!sentinelSeen()) quietTimer = setTimeout(checkAlive, QUIET_S * 1000)
 		}
 
 		const lines = lineSplitter((line) => {
 			if (done || line.startsWith('--------- beginning of ')) return
-			const sentinel = parseSentinel(line)
-			if (sentinel) {
-				if (sentinel.before) stdout.write(sentinel.before + '\n')
-				finish({ kind: 'exit', exitCode: sentinel.exitCode })
-				return
-			}
-			stdout.write(line + '\n')
+			watcher.line(line)
 		})
 		logcat.stdout.setEncoding('utf8').on('data', (chunk) => {
 			lines.push(chunk)
@@ -454,12 +478,13 @@ function watchLogcat({ logcat, serial, timeoutSeconds, stdout }) {
 		})
 		logcat.on('close', () => {
 			lines.flush()
-			finish({ kind: 'logcat-closed' })
+			if (sentinelSeen()) watcher.end()
+			else finish({ kind: 'logcat-closed' })
 		})
-		const overall = setTimeout(
-			() => finish({ kind: 'timeout' }),
-			timeoutSeconds * 1000,
-		)
+		const overall = setTimeout(() => {
+			if (sentinelSeen()) watcher.end()
+			else finish({ kind: 'timeout' })
+		}, timeoutSeconds * 1000)
 		armQuiet()
 	})
 }

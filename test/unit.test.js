@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -9,7 +9,11 @@ import { parseAdbDevices } from '../src/android.js'
 import { DeviceNotFound } from '../src/errors.js'
 import { pickSimulator } from '../src/ios.js'
 import { mainJs, writeNodejsProject } from '../src/project.js'
-import { lineSplitter, parseSentinel } from '../src/sentinel.js'
+import {
+	lineSplitter,
+	parseSentinel,
+	sentinelWatcher,
+} from '../src/sentinel.js'
 import { projectCacheDir } from '../src/util.js'
 
 test('parseSentinel', () => {
@@ -83,30 +87,53 @@ test('pickSimulator', () => {
 	assert.throws(() => pickSimulator(devices, 'iPhone 3G'), DeviceNotFound)
 })
 
-test('generated main.js prints the sentinel under CJS and ESM', (t) => {
+test('generated main.js reports the final exit code', (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmth-'))
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+	/** @type {[string, string, number, string][]} */
+	const cases = [
+		// tape prints its summary and exits from its own exit listener
+		[
+			'exit listener',
+			"process.on('exit', () => { console.log('1..1'); process.exit(1) })",
+			1,
+			'1..1\n__NODE_EXIT__:1\n',
+		],
+		[
+			'process.exit()',
+			"console.log('hi'); process.exit(4)",
+			4,
+			'hi\n__NODE_EXIT__:4\n',
+		],
+		[
+			'natural exit',
+			"console.log('hi'); process.exitCode = 3",
+			3,
+			'hi\n__NODE_EXIT__:3\n',
+		],
+		['uncaught exception', "throw new Error('boom')", 1, '__NODE_EXIT__:1\n'],
+		[
+			'code set in a listener',
+			"process.on('exit', () => { process.exitCode = 5 })",
+			5,
+			'__NODE_EXIT__:5\n',
+		],
+	]
 	for (const type of ['commonjs', 'module']) {
 		fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type }))
 		fs.mkdirSync(path.join(dir, 'sub'), { recursive: true })
 		fs.writeFileSync(
-			path.join(dir, 'sub', 'entry.js'),
-			"console.log('hi'); process.exitCode = 3",
-		)
-		fs.writeFileSync(
 			path.join(dir, 'main.js'),
 			mainJs(path.join('sub', 'entry.js')),
 		)
-		let out = ''
-		try {
-			execFileSync(process.execPath, [path.join(dir, 'main.js')], {
+		for (const [name, source, exitCode, stdout] of cases) {
+			fs.writeFileSync(path.join(dir, 'sub', 'entry.js'), source)
+			const res = spawnSync(process.execPath, [path.join(dir, 'main.js')], {
 				encoding: 'utf8',
 			})
-		} catch (err) {
-			out = /** @type {{ stdout: string, status: number }} */ (err).stdout
-			assert.equal(/** @type {{ status: number }} */ (err).status, 3)
+			assert.equal(res.status, exitCode, `${type}, ${name}`)
+			assert.equal(res.stdout, stdout, `${type}, ${name}`)
 		}
-		assert.equal(out, 'hi\n__NODE_EXIT__:3\n', type)
 	}
 })
 
@@ -128,4 +155,94 @@ test('the project can contain the cache directory', (t) => {
 		'test.js',
 	])
 	assert.deepEqual(fs.readdirSync(path.join(dest, 'node_modules')), ['dep'])
+})
+
+test('the project copy follows symlinks but skips dangling ones and loops', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmth-'))
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+	const project = path.join(dir, 'project')
+	const linked = path.join(dir, 'linked-dep')
+	fs.mkdirSync(path.join(project, 'node_modules'), { recursive: true })
+	fs.mkdirSync(linked)
+	fs.writeFileSync(path.join(project, 'test.js'), '')
+	fs.writeFileSync(path.join(linked, 'index.js'), 'dep')
+	fs.symlinkSync(linked, path.join(project, 'node_modules', 'dep'))
+	fs.symlinkSync(
+		path.join(dir, 'gone'),
+		path.join(project, 'node_modules', 'dangling'),
+	)
+	fs.symlinkSync(project, path.join(project, 'node_modules', 'loop'))
+	const dest = path.join(dir, 'out')
+	writeNodejsProject({
+		projectDir: project,
+		entry: 'test.js',
+		dest,
+		cacheRoot: projectCacheDir(project),
+	})
+	assert.deepEqual(fs.readdirSync(path.join(dest, 'node_modules')), ['dep'])
+	const copied = path.join(dest, 'node_modules', 'dep', 'index.js')
+	assert.equal(fs.lstatSync(copied).isSymbolicLink(), false)
+	assert.equal(fs.readFileSync(copied, 'utf8'), 'dep')
+})
+
+test('sentinelWatcher keeps output that follows the sentinel', async () => {
+	/** @type {string[]} */
+	const written = []
+	const stdout = /** @type {NodeJS.WritableStream} */ (
+		/** @type {unknown} */ ({
+			write: (/** @type {string} */ s) => written.push(s),
+		})
+	)
+	const exited = new Promise((onExit) => {
+		const watcher = sentinelWatcher({
+			stdout,
+			onExit,
+			quietMs: 50,
+			maxMs: 1000,
+		})
+		watcher.line('ok 1')
+		watcher.line('__NODE_EXIT__:1')
+		watcher.line('Error: boom')
+		watcher.line('__NODE_EXIT__:0')
+	})
+	assert.equal(await exited, 1)
+	assert.deepEqual(written, ['ok 1\n', 'Error: boom\n'])
+})
+
+test('sentinelWatcher stops draining at maxMs', async () => {
+	const stdout = /** @type {NodeJS.WritableStream} */ (
+		/** @type {unknown} */ ({ write() {} })
+	)
+	const start = Date.now()
+	await new Promise((onExit) => {
+		const watcher = sentinelWatcher({
+			stdout,
+			onExit,
+			quietMs: 100,
+			maxMs: 300,
+		})
+		watcher.line('__NODE_EXIT__:0')
+		const noisy = setInterval(() => watcher.line('noise'), 20)
+		setTimeout(() => clearInterval(noisy), 600)
+	})
+	const elapsed = Date.now() - start
+	assert.ok(elapsed >= 250 && elapsed < 550, `${elapsed}ms`)
+})
+
+test('exec returns, and lets the process exit, while a daemon holds its pipes', () => {
+	const util = new URL('../src/util.js', import.meta.url).href
+	const script = `import { exec } from ${JSON.stringify(util)}
+const res = await exec('sh', ['-c', 'sleep 10 & echo hi'], { timeoutMs: 5000 })
+console.log(res.stdout.trim())`
+	const start = Date.now()
+	const res = spawnSync(
+		process.execPath,
+		['--input-type=module', '-e', script],
+		{
+			encoding: 'utf8',
+			timeout: 8000,
+		},
+	)
+	assert.equal(res.stdout.trim(), 'hi')
+	assert.ok(Date.now() - start < 4000, `took ${Date.now() - start}ms`)
 })

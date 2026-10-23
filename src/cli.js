@@ -10,7 +10,7 @@ import {
 	runAndroid,
 	runIos,
 } from './index.js'
-import { log } from './util.js'
+import { log, runInterruptCleanups } from './util.js'
 
 const HELP = `Usage: nodejs-mobile-test <ios|android> [dir] [options]
 
@@ -26,7 +26,7 @@ Options:
                              instead of downloading one
   --timeout <seconds>        how long to wait for node to exit after launch
                              (default: ${DEFAULT_TIMEOUT_SECONDS})
-  --build-only               build the app, print its path and stop
+  --build-only               build the app, print its path to stdout and stop
   --run-only                 run the app from the last build
   -h, --help                 show this help
   -v, --version              show the version
@@ -122,7 +122,18 @@ export async function main(argv) {
 					avd: values.avd,
 					abi: values.abi,
 				})
+	if (values['build-only']) process.stdout.write(result.appPath + '\n')
 	return result.exitCode ?? 0
+}
+
+// `finally` blocks don't run on a signal; release devices and child processes
+// before going down with it.
+for (const signal of /** @type {const} */ (['SIGINT', 'SIGTERM'])) {
+	process.once(signal, async () => {
+		log(`${signal}: cleaning up`)
+		await runInterruptCleanups()
+		process.kill(process.pid, signal)
+	})
 }
 
 try {
