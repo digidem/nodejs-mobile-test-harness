@@ -1,0 +1,35 @@
+name: Changesets
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # A required check. Skipped on the version PR and on Dependabot's, which
+  # counts as passing; a dependency bump that should release gets a changeset
+  # added by hand.
+  changeset-check:
+    if: >-
+      ${{
+        !startsWith(github.head_ref, 'changeset-release/') &&
+        github.event.pull_request.user.login != 'dependabot[bot]'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Check CHANGELOG.md is not edited
+        run: |
+          if [ -n "$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- '**/CHANGELOG.md' CHANGELOG.md)" ]; then
+            echo "::error::CHANGELOG.md was changed. Don't run 'changeset version' on a branch; the version PR does it."
+            exit 1
+          fi
+      # A PR that releases nothing needs `npx changeset --empty`.
+      - run: npx changeset status --since=origin/${{ github.base_ref }}
