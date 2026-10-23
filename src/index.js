@@ -1,7 +1,1 @@
-/**
- * @param {string} name
- * @returns {string}
- */
-export function hello(name) {
-	return `Hello, ${name}!`
-}
+export { DEFAULT_NODEJS_MOBILE_VERSION } from './runtime.js'
