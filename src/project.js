@@ -100,12 +100,29 @@ export function copyTemplate(platform, dest) {
  */
 export function writeNodejsProject({ projectDir, entry, dest, cacheRoot }) {
 	fs.rmSync(dest, RM_OPTIONS)
-	fs.cpSync(projectDir, dest, {
-		recursive: true,
-		// The app bundle can't hold symlinks that point outside it.
-		dereference: true,
-		filter: (src) =>
-			path.resolve(src) !== cacheRoot && path.basename(src) !== '.git',
-	})
+	copyProjectTree(path.resolve(projectDir), dest, cacheRoot)
 	fs.writeFileSync(path.join(dest, 'main.js'), mainJs(path.normalize(entry)))
+}
+
+/**
+ * `fs.cpSync` refuses to copy a directory into its own subtree even when a
+ * filter would skip it, which is the usual layout (`dir` is `.` and the app
+ * copy lives in its `node_modules/.cache/`). Symlinks are followed: the app
+ * bundle can't hold links that point outside it.
+ *
+ * @param {string} src
+ * @param {string} dest
+ * @param {string} skip
+ */
+function copyProjectTree(src, dest, skip) {
+	fs.mkdirSync(dest, { recursive: true })
+	for (const name of fs.readdirSync(src)) {
+		const from = path.join(src, name)
+		if (from === skip || name === '.git') continue
+		// Tool caches, ours included; never needed in the app.
+		if (name === '.cache' && path.basename(src) === 'node_modules') continue
+		const to = path.join(dest, name)
+		if (fs.statSync(from).isDirectory()) copyProjectTree(from, to, skip)
+		else fs.copyFileSync(from, to)
+	}
 }

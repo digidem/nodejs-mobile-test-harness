@@ -8,8 +8,9 @@ import { test } from 'node:test'
 import { parseAdbDevices } from '../src/android.js'
 import { DeviceNotFound } from '../src/errors.js'
 import { pickSimulator } from '../src/ios.js'
-import { mainJs } from '../src/project.js'
+import { mainJs, writeNodejsProject } from '../src/project.js'
 import { lineSplitter, parseSentinel } from '../src/sentinel.js'
+import { projectCacheDir } from '../src/util.js'
 
 test('parseSentinel', () => {
 	assert.deepEqual(parseSentinel('__NODE_EXIT__:0'), {
@@ -107,4 +108,24 @@ test('generated main.js prints the sentinel under CJS and ESM', (t) => {
 		}
 		assert.equal(out, 'hi\n__NODE_EXIT__:3\n', type)
 	}
+})
+
+test('the project can contain the cache directory', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmth-'))
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+	const cacheRoot = projectCacheDir(dir)
+	const dest = path.join(cacheRoot, 'ios', 'nodejs-project')
+	fs.writeFileSync(path.join(dir, 'test.js'), '')
+	fs.mkdirSync(path.join(dir, 'node_modules', 'dep'), { recursive: true })
+	fs.writeFileSync(path.join(dir, 'node_modules', 'dep', 'index.js'), '')
+	fs.mkdirSync(path.join(cacheRoot, 'ios'), { recursive: true })
+	for (let i = 0; i < 2; i++) {
+		writeNodejsProject({ projectDir: dir, entry: 'test.js', dest, cacheRoot })
+	}
+	assert.deepEqual(fs.readdirSync(dest).sort(), [
+		'main.js',
+		'node_modules',
+		'test.js',
+	])
+	assert.deepEqual(fs.readdirSync(path.join(dest, 'node_modules')), ['dep'])
 })
