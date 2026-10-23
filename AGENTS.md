@@ -37,7 +37,9 @@ npm run format      # prettier
   behaviours"; a change that drops one reintroduces a known CI hang.
 - The default nodejs-mobile version is pinned in one place in the source;
   bump it there, in the README, and in CI together.
-- Releases: Gregor publishes. Prereleases go to the `next` dist-tag.
+- Releases: Gregor publishes. Prereleases go to the `next` dist-tag: until
+  1.0.0, `npm run release` passes `--tag next` and `publishConfig.tag` is
+  `next`; changesets would otherwise publish to `latest`.
 
 ## Conventions
 

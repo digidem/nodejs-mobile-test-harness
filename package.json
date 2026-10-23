@@ -1,6 +1,6 @@
 {
 	"name": "@digidem/nodejs-mobile-test-harness",
-	"version": "0.0.0",
+	"version": "1.0.0-pre.0",
 	"description": "Run a Node project inside nodejs-mobile on an iOS simulator or Android device and exit with node's exit code",
 	"keywords": [
 		"nodejs-mobile",
@@ -38,6 +38,10 @@
 	"engines": {
 		"node": ">=22"
 	},
+	"publishConfig": {
+		"access": "public",
+		"tag": "next"
+	},
 	"sideEffects": false,
 	"scripts": {
 		"build": "rimraf dist && tsc -p tsconfig.build.json",
@@ -52,7 +56,7 @@
 		"coverage": "c8 --reporter=lcov --reporter=text node --test \"test/**/*.test.js\"",
 		"check:pkg": "npm run build && publint && attw --pack --profile esm-only",
 		"changeset": "changeset",
-		"release": "changeset publish"
+		"release": "changeset publish --tag next"
 	},
 	"prettier": {
 		"semi": false,
