@@ -189,7 +189,7 @@ export async function acquireDevice({
 	if (serial) {
 		const found = devices.find((d) => d.serial === serial)
 		if (found?.state === 'device') return { serial, release }
-		if (!found && avd) return bootAvd(avd, devices, cacheRoot)
+		if (!found && avd) return bootAvd(avd, devices, cacheRoot, serial)
 		throw new DeviceNotFound({
 			reason: found
 				? `${serial} is ${found.state}`
@@ -214,12 +214,15 @@ export async function acquireDevice({
  * @param {string} avd
  * @param {{ serial: string }[]} devices
  * @param {string} cacheRoot
+ * @param {string} [wantSerial] boot on this serial's port when it's `emulator-<port>`
  * @returns {Promise<AndroidDevice>}
  */
-async function bootAvd(avd, devices, cacheRoot) {
+async function bootAvd(avd, devices, cacheRoot, wantSerial) {
 	// A fixed console port makes the serial known up front.
-	let port = 5554
-	while (devices.some((d) => d.serial === `emulator-${port}`)) port += 2
+	const wanted = /^emulator-(\d+)$/.exec(wantSerial ?? '')
+	let port = wanted ? Number(wanted[1]) : 5554
+	while (!wanted && devices.some((d) => d.serial === `emulator-${port}`))
+		port += 2
 	const serial = `emulator-${port}`
 	fs.mkdirSync(cacheRoot, { recursive: true })
 	const logFile = path.join(cacheRoot, 'emulator.log')
@@ -381,6 +384,7 @@ export async function runAndroidApp({
 				reason: 'adb logcat stopped before the exit sentinel',
 			})
 		}
+		await adb(serial, ['shell', 'am', 'force-stop', APP_ID])
 		throw new Timeout({ seconds: String(timeoutSeconds) })
 	} finally {
 		// A surviving logcat client holds an adb connection open, which has
