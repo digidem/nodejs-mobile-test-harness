@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -38,11 +38,11 @@ jobs:
     name: android (API ${{ matrix.api-level }})
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -57,7 +57,7 @@ jobs:
       # The older emulator images sometimes fail to boot or hang, so a stuck run
       # stops after 15 minutes and is tried once more on a fresh emulator.
       - id: emulator
-        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         timeout-minutes: 15
         continue-on-error: true
         with: &emulator
@@ -78,6 +78,6 @@ jobs:
           pkill -f qemu-system || true
           "$ANDROID_HOME/platform-tools/adb" kill-server || true
       - if: steps.emulator.outcome == 'failure'
-        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         timeout-minutes: 15
         with: *emulator
