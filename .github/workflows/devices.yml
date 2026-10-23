@@ -23,6 +23,19 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # A cold boot on the runner can take several minutes; doing it here keeps
+      # it out of the fixtures. The tool then picks this booted simulator.
+      - name: Boot simulator
+        timeout-minutes: 15
+        run: |
+          udid=$(xcrun simctl list devices available -j | node --input-type=module -e "
+            import { pickSimulator } from './src/ios.js'
+            let json = ''
+            for await (const chunk of process.stdin) json += chunk
+            console.log(pickSimulator(JSON.parse(json).devices).udid)
+          ")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
       - run: scripts/run-fixtures.sh ios --timeout 300
 
   android:
