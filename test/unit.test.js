@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -83,30 +83,42 @@ test('pickSimulator', () => {
 	assert.throws(() => pickSimulator(devices, 'iPhone 3G'), DeviceNotFound)
 })
 
-test('generated main.js prints the sentinel under CJS and ESM', (t) => {
+test('generated main.js reports the final exit code', (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmth-'))
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+	/** @type {[string, string, number, string][]} */
+	const cases = [
+		// tape prints its summary and exits from its own exit listener
+		[
+			'exit listener',
+			"process.on('exit', () => { console.log('1..1'); process.exit(1) })",
+			1,
+			'1..1\n__NODE_EXIT__:1\n',
+		],
+		[
+			'process.exit()',
+			"console.log('hi'); process.exit(4)",
+			4,
+			'hi\n__NODE_EXIT__:4\n',
+		],
+		// The app prints the sentinel when node_start returns
+		['natural exit', "console.log('hi'); process.exitCode = 3", 3, 'hi\n'],
+	]
 	for (const type of ['commonjs', 'module']) {
 		fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type }))
 		fs.mkdirSync(path.join(dir, 'sub'), { recursive: true })
 		fs.writeFileSync(
-			path.join(dir, 'sub', 'entry.js'),
-			"console.log('hi'); process.exitCode = 3",
-		)
-		fs.writeFileSync(
 			path.join(dir, 'main.js'),
 			mainJs(path.join('sub', 'entry.js')),
 		)
-		let out = ''
-		try {
-			execFileSync(process.execPath, [path.join(dir, 'main.js')], {
+		for (const [name, source, exitCode, stdout] of cases) {
+			fs.writeFileSync(path.join(dir, 'sub', 'entry.js'), source)
+			const res = spawnSync(process.execPath, [path.join(dir, 'main.js')], {
 				encoding: 'utf8',
 			})
-		} catch (err) {
-			out = /** @type {{ stdout: string, status: number }} */ (err).stdout
-			assert.equal(/** @type {{ status: number }} */ (err).status, 3)
+			assert.equal(res.status, exitCode, `${type}, ${name}`)
+			assert.equal(res.stdout, stdout, `${type}, ${name}`)
 		}
-		assert.equal(out, 'hi\n__NODE_EXIT__:3\n', type)
 	}
 })
 

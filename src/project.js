@@ -34,16 +34,21 @@ const TEMPLATE_SKIP = new Set([
 /**
  * The generated entry. `process.exit()` calls libc `exit()` and kills the app
  * before the native code after `node_start` runs, so the sentinel is printed
- * from `process.on('exit')`. `import()` parses as both CJS and ESM, so the
- * project's `package.json` `type` doesn't matter.
+ * from `process.reallyExit`, which receives the final code after every `exit`
+ * listener (test frameworks such as tape set it there). A natural exit or an
+ * uncaught exception returns from `node_start`, and the app prints the sentinel
+ * itself. `import()` parses as both CJS and ESM, so the project's
+ * `package.json` `type` doesn't matter.
  *
  * @param {string} entry
  */
 export function mainJs(entry) {
 	const specifier = './' + entry.split(path.sep).join('/')
-	return `process.on('exit', (code) => {
+	return `const reallyExit = process.reallyExit
+process.reallyExit = function (code) {
 	process.stdout.write('${SENTINEL}' + code + '\\n')
-})
+	return reallyExit.call(process, code)
+}
 
 import(${JSON.stringify(specifier)})
 `
