@@ -317,7 +317,7 @@
 				);
 				INFOPLIST_FILE = "TestHarness/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.digidem.nodejstest";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.awana.nodejstest";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -334,7 +334,7 @@
 				);
 				INFOPLIST_FILE = "TestHarness/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.digidem.nodejstest";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.awana.nodejstest";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

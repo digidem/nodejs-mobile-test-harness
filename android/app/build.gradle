@@ -3,12 +3,12 @@ plugins {
 }
 
 android {
-    namespace 'com.digidem.nodejstest'
+    namespace 'com.awana.nodejstest'
     compileSdk 34
     ndkVersion '26.3.11579264'
 
     defaultConfig {
-        applicationId "com.digidem.nodejstest"
+        applicationId "com.awana.nodejstest"
         minSdk 24
         targetSdk 34
         versionCode 1

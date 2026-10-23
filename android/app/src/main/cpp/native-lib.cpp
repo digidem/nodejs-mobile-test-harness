@@ -69,7 +69,7 @@ static void drain_stdio_pumps() {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_digidem_nodejstest_TestActivity_startNodeWithArguments(
+Java_com_awana_nodejstest_TestActivity_startNodeWithArguments(
         JNIEnv *env,
         jobject /* this */,
         jobjectArray arguments) {
@@ -106,7 +106,7 @@ Java_com_digidem_nodejstest_TestActivity_startNodeWithArguments(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_digidem_nodejstest_TestActivity_logExitSentinel(
+Java_com_awana_nodejstest_TestActivity_logExitSentinel(
         JNIEnv *env,
         jobject /* this */,
         jint code) {

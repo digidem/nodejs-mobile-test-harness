@@ -8,7 +8,7 @@
 set -euo pipefail
 
 APK="${GITHUB_WORKSPACE}/.nodejs-mobile-bare-prebuilds/test-harness/android/app/build/outputs/apk/debug/app-debug.apk"
-APP_ID=com.digidem.nodejstest
+APP_ID=com.awana.nodejstest
 TIMEOUT_SECONDS=1200
 
 adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
