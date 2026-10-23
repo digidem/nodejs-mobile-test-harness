@@ -18,13 +18,14 @@ shift
 build_only=""
 for arg in "$@"; do [ "$arg" = "--build-only" ] && build_only=1; done
 
-# fixture|exit code|stderr must contain|stdout must contain
+# fixture|exit code|stderr must contain|output must contain (re: for an ERE)
 FIXTURES=(
   "passes|0|node exited with code 0|1..2"
   "fails|1|node exited with code 1|not ok 2"
   "crashes|1|App crashed|ok 1 - before the crash"
   "exit-listener|1|node exited with code 1|1..1"
   "throws|1|node exited with code 1|uncaught on purpose"
+  "long-line|0|node exited with code 0|re:^ok 1 - (x{200}){15} end$"
 )
 
 tmp="$(mktemp -d)"
@@ -47,7 +48,10 @@ for spec in "${FIXTURES[@]}"; do
   elif [ -n "$want_err" ] && ! grep -qF "$want_err" "$tmp/err"; then
     echo "::error::$fixture: exit $code but stderr lacks '$want_err' (${elapsed}s)"
     failed=1
-  elif [ -n "$want_out" ] && ! grep -qF "$want_out" "$tmp/out" "$tmp/err"; then
+  elif [ -n "$want_out" ] && ! case "$want_out" in
+      re:*) grep -qE "${want_out#re:}" "$tmp/out" "$tmp/err" ;;
+      *) grep -qF "$want_out" "$tmp/out" "$tmp/err" ;;
+    esac; then
     echo "::error::$fixture: exit $code but the output lacks '$want_out' (${elapsed}s)"
     failed=1
   else

@@ -15,24 +15,35 @@ static int pipe_stderr[2];
 static pthread_t thread_stdout;
 static pthread_t thread_stderr;
 
+// logcat truncates an entry past ~4 KB, so longer lines go out in pieces.
+static const size_t MAX_ENTRY = 4000;
+
 static void *pump(int fd, android_LogPriority prio) {
     char buf[2048];
+    // A read can end mid-line; carry the partial line over so each logcat
+    // entry is one whole line of output (TAP lines, the exit sentinel).
+    std::string pending;
     ssize_t n;
-    while ((n = read(fd, buf, sizeof(buf) - 1)) > 0) {
-        // Split on newlines so each line becomes its own logcat entry,
-        // otherwise TAP output gets jumbled inside a single log line.
-        buf[n] = '\0';
-        char *start = buf;
-        for (char *p = buf; p < buf + n; p++) {
-            if (*p == '\n') {
-                *p = '\0';
-                __android_log_write(prio, LOGTAG, start);
-                start = p + 1;
+    while ((n = read(fd, buf, sizeof(buf))) > 0) {
+        pending.append(buf, n);
+        size_t start = 0;
+        size_t nl;
+        while ((nl = pending.find('\n', start)) != std::string::npos) {
+            while (nl - start > MAX_ENTRY) {
+                __android_log_write(prio, LOGTAG, pending.substr(start, MAX_ENTRY).c_str());
+                start += MAX_ENTRY;
             }
+            __android_log_write(prio, LOGTAG, pending.substr(start, nl - start).c_str());
+            start = nl + 1;
         }
-        if (start < buf + n) {
-            __android_log_write(prio, LOGTAG, start);
+        pending.erase(0, start);
+        while (pending.size() > MAX_ENTRY) {
+            __android_log_write(prio, LOGTAG, pending.substr(0, MAX_ENTRY).c_str());
+            pending.erase(0, MAX_ENTRY);
         }
+    }
+    if (!pending.empty()) {
+        __android_log_write(prio, LOGTAG, pending.c_str());
     }
     return NULL;
 }
